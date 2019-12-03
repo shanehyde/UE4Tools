@@ -1,0 +1,19 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"blender.addon.reloadOnSave": true,
+		"python.autoComplete.extraPaths": [
+			"D:/blender_autocomplete-master/2.80"
+		],
+		"python.linting.pylintArgs": [
+			"--init-hook",
+			"import sys; sys.path.append('D:/blender_autocomplete-master/2.80')"
+		],
+		"python.linting.pylintEnabled": false,
+		
+	}
+}
