@@ -1,6 +1,7 @@
 import bpy
 import os
 import mathutils
+import math
 
 from . util import *
 
@@ -76,6 +77,14 @@ class UE4_OT_ExportArmature(bpy.types.Operator):
         mat_trans = mathutils.Matrix.Translation((0,0,0))
         mat_rot = newMatrix.to_quaternion().to_matrix()
         newMatrix = mat_trans @ mat_rot.to_4x4()
+
+        #mat_trans = mathutils.Matrix.Translation(newMatrix.to_translation())
+        #mat_rot = mathutils.Matrix.Rotation(0, 4, 'X')
+        #newMatrix = mat_trans @ mat_rot
+
+        # rotate around Z to make the front point to X which is what UE4 wants
+        eul = mathutils.Euler((0,0, math.radians(90.0)), 'ZXY')
+        newMatrix = newMatrix @ eul.to_matrix().to_4x4()
         
         armatureObj.matrix_world = newMatrix
         armatureObj.scale = saveScale
@@ -152,6 +161,14 @@ class UE4_OT_ExportArmature(bpy.types.Operator):
         armatureObj.animation_data.action_extrapolation = savedAction_extrapolation
         armatureObj.animation_data.action_blend_type = savedAction_blend_type
         armatureObj.animation_data.action_influence = savedAction_influence
+
+        for x in armatureObj.pose.bones:
+            x.rotation_quaternion = mathutils.Quaternion((0,0,0),0)
+            x.rotation_euler = mathutils.Vector((0,0,0))
+            x.scale = mathutils.Vector((1,1,1))
+            x.location = mathutils.Vector((0,0,0))
+
+        #bpy.ops.object.transform_apply(location=False, rotation=True, scale=False )
                 
         # now export the armature and mesh
         bpy.ops.export_scene.fbx(

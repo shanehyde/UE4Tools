@@ -25,7 +25,6 @@ bl_info = {
 
 import bpy
 
-from . test_op import UE4_OT_Operator
 from . test_panel import UE4_PT_Panel
 from . prefs import UE4_AP_AddonPreferences
 from . origin_op import UE4_OT_SetOriginToBase
@@ -33,7 +32,6 @@ from . export_armature_op import UE4_OT_ExportArmature
 from . export_static import UE4_OT_ExportMesh
 
 classes = (
-    UE4_OT_Operator, 
     UE4_PT_Panel,
     UE4_AP_AddonPreferences,
     UE4_OT_SetOriginToBase,

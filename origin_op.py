@@ -8,13 +8,11 @@ class UE4_OT_SetOriginToBase(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        #print (context.active_object.type)
         return context.active_object and context.active_object.type == "MESH"
 
     def execute(self, context):
         active = bpy.context.active_object
         location = bpy.context.scene.cursor.location.copy()
-        #print(location)
         
         if active.type == "MESH":
             #print(active.data)
@@ -24,9 +22,7 @@ class UE4_OT_SetOriginToBase(bpy.types.Operator):
             totaly = 0
             ix = 0
             for v in mesh.vertices:
-                #print(v.co)
                 worldv = active.matrix_world @ v.co
-                #print(worldv)
                 if worldv[2] < minz: 
                     minz = worldv[2]
                 totalx += worldv[0]
@@ -38,7 +34,6 @@ class UE4_OT_SetOriginToBase(bpy.types.Operator):
             bpy.context.scene.cursor.location = V
             bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
 
-        #print(location)
         bpy.context.scene.cursor.location = location
 
         return {'FINISHED'}
