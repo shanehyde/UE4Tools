@@ -12,21 +12,13 @@ class UE4_OT_ExportMesh(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        #print (context.active_object.type)
         return context.active_object and context.active_object.type == "MESH"
 
     def execute(self, context):
 
         preferences = bpy.context.preferences
         addon_prefs = preferences.addons['UE4Tools'].preferences
-        #print(addon_prefs)
-
-        #tempScene = bpy.context.scene.copy()
-        #tempScene.name = "ue4-export-temp"
-
-
-        #bpy.context.window.scene = tempScene
-
+      
         scene = bpy.context.scene
 
         activeObj = bpy.context.active_object

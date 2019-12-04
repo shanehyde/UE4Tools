@@ -19,17 +19,10 @@ class UE4_OT_ExportArmature(bpy.types.Operator):
 
         preferences = bpy.context.preferences
         addon_prefs = preferences.addons['UE4Tools'].preferences
-        #print(addon_prefs)
-
-        #tempScene = bpy.context.scene.copy()
-        #tempScene.name = "ue4-export-temp"
-
-        #bpy.context.window.scene = tempScene
 
         scene = bpy.context.scene
 
         activeObj = bpy.context.active_object
-        #print("Original active object = %s" % activeObj.name)
         filename_prefix = addon_prefs.skeletal_prefix_export_name
         filename = filename_prefix + activeObj.name + ".fbx"
 
@@ -40,40 +33,42 @@ class UE4_OT_ExportArmature(bpy.types.Operator):
             os.makedirs(absdirpath)
         fullpath = os.path.join( absdirpath ,  filename )
 
+        # select all the children of the Armature
         bpy.ops.object.select_hierarchy(direction='CHILD', extend=True)
-        #for obj in bpy.context.selected_objects:
-        #    print(obj.name)
-        #activeObj = bpy.context.active_object
-        #print(activeObj.name)
-        #bpy.context.scene.objects.active = activeObj
+        #make sure Armature is active object again
         bpy.context.view_layer.objects.active = activeObj
-        #activeObj = bpy.context.active_object
-        #print(activeObj.name)
 
+        #duplicate it all
         bpy.ops.object.duplicate()
-        #print("Duplicating ----")
 
+        # Rename the newly created Armature so that UE4 will not add an extra root bone
         armatureObj = bpy.context.active_object
         armatureObj.name = addon_prefs.skeletonRootBoneName
-        #print("New active name = %s" % armatureObj.name)
-    
-        #for obj in bpy.context.selected_objects:
-        #    print(obj.name)
 
+        # Appply all modifiers except Armature to the mesh
         ApplyNeededModifierToSelect()
+
+        #remove all materials from the the mesh except those starting with Mat_
         RemoveMaterialsFromSelectedObjects()
 
+        # This trickery causes the armature to have a scale of 0.01 and the mesh to have a scale of 1.0
+        # this means that when UE4 imports the mesh and mistakenly scales the skeleton by 100 then everything is 
+        # right
         bpy.ops.object.transform_apply(location=False, rotation=False, scale=True )
         bpy.ops.transform.resize(value=(100,100,100))
         bpy.ops.object.transform_apply(location=False, rotation=False, scale=True )
         bpy.ops.transform.resize(value=(0.01, 0.01, 0.01))
         bpy.ops.object.select_hierarchy(direction='CHILD', extend=False) 
         bpy.ops.object.transform_apply(location=False, rotation=False, scale=True )
+
+        #select the armature again and make it active
         bpy.ops.object.select_hierarchy(direction='PARENT', extend=False) 
-        
         bpy.context.view_layer.objects.active = armatureObj
+
+        #reselct all the children
         bpy.ops.object.select_hierarchy(direction='CHILD', extend=True) 
 
+        # move the object to 0,0,0 for export.  No need to worry about rotation just now
         newMatrix = armatureObj.matrix_world @ mathutils.Matrix.Translation((0,0,0))
         saveScale = armatureObj.scale * 1
         mat_trans = mathutils.Matrix.Translation((0,0,0))
@@ -83,8 +78,7 @@ class UE4_OT_ExportArmature(bpy.types.Operator):
         armatureObj.matrix_world = newMatrix
         armatureObj.scale = saveScale
 
-        #print(fullpath)
-
+        # lets find all actions that use a bone from this armature
         actionList = []
         armatureBones = {bone.name for bone in armatureObj.data.bones}
         for action in bpy.data.actions:
@@ -92,19 +86,20 @@ class UE4_OT_ExportArmature(bpy.types.Operator):
             if not armatureBones.isdisjoint(actionBones):
                 actionList.append(action)
 
-        #print(actionList)
-
+        # backup some values to put back later
         savedAction = armatureObj.animation_data.action #Save current action
         savedAction_extrapolation = armatureObj.animation_data.action_extrapolation
         savedAction_blend_type = armatureObj.animation_data.action_blend_type
         savedAction_influence = armatureObj.animation_data.action_influence
 
+        # make the data block we might need
         if armatureObj.animation_data is None:
             armatureObj.animation_data_create()
 
         if (bpy.context.scene.is_nla_tweakmode == True):
             armatureObj.animation_data.use_tweak_mode = False
 
+        # ok do all the actions, if they have one frame, we will call it a Pose
         for action in actionList:
             if action.frame_range.y - action.frame_range.x == 1:
                 actionType = "Pose"
@@ -113,36 +108,22 @@ class UE4_OT_ExportArmature(bpy.types.Operator):
                 actionType = "Action"
                 action_prefix = addon_prefs.anim_prefix_export_name
 
-
+            # construct the filename from the settings.
             filename_prefix = action_prefix
             action_filename = filename_prefix + activeObj.name+"_"+action.name + ".fbx"
             action_path = os.path.join( absdirpath ,  action_filename )
 
-            #print(action_path)
-
-            #bpy.ops.pose.transforms_clear()
-
+            # select the action into the action editor
             armatureObj.animation_data.action = action #Apply desired action and reset NLA
             armatureObj.animation_data.action_extrapolation = 'HOLD'
             armatureObj.animation_data.action_blend_type = 'REPLACE'
             armatureObj.animation_data.action_influence = 1
 
-            if armatureObj.AnimStartEndTimeEnum == "with_keyframes":
-                startTime = action.frame_range.x #GetFirstActionFrame
-                endTime = action.frame_range.y #GetLastActionFrame
-            elif armatureObj.AnimStartEndTimeEnum == "with_sceneframes":
-                startTime = scene.frame_start
-                endTime = scene.frame_end
-            elif armatureObj.AnimStartEndTimeEnum == "with_customframes":
-                startTime = armatureObj.AnimCustomStartTime
-                endTime = armatureObj.AnimCustomEndTime
+            # set the frame range
+            scene.frame_start = action.frame_range.x
+            scene.frame_end = action.frame_range.y
 
-            startTime += armatureObj.StartFramesOffset
-            endTime += armatureObj.EndFramesOffset
-
-            scene.frame_start = startTime
-            scene.frame_end = endTime
-
+            # export only the armature and its animation
             bpy.ops.export_scene.fbx(
                 filepath=action_path,
                 check_existing=False,
@@ -166,12 +147,13 @@ class UE4_OT_ExportArmature(bpy.types.Operator):
                 bake_space_transform = False
             )
 
-            #bpy.ops.pose.transforms_clear()
+        # restore the saved stuff
         armatureObj.animation_data.action = savedAction #Resets previous action and NLA
         armatureObj.animation_data.action_extrapolation = savedAction_extrapolation
         armatureObj.animation_data.action_blend_type = savedAction_blend_type
         armatureObj.animation_data.action_influence = savedAction_influence
                 
+        # now export the armature and mesh
         bpy.ops.export_scene.fbx(
             filepath=fullpath,
             check_existing=False,
@@ -191,13 +173,11 @@ class UE4_OT_ExportArmature(bpy.types.Operator):
             bake_space_transform = False
         )
 
-
+        # delete the duplicated objects
         bpy.ops.object.delete()
         
-        #print("New active name = %s" % activeObj.name)
+        # set the active back to the original armature and select it
         bpy.context.view_layer.objects.active = activeObj
         activeObj.select_set(True)
-        #bpy.context.window.scene = savedScene
-        #bpy.data.scenes.remove(tempScene)
         
         return {'FINISHED'}
