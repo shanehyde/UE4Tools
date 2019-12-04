@@ -58,6 +58,8 @@ class UE4_OT_ExportArmature(bpy.types.Operator):
         bpy.ops.transform.resize(value=(100,100,100))
         bpy.ops.object.transform_apply(location=False, rotation=False, scale=True )
         bpy.ops.transform.resize(value=(0.01, 0.01, 0.01))
+
+        #after that the child mesh has a scale of 100, lets reset it to 1
         bpy.ops.object.select_hierarchy(direction='CHILD', extend=False) 
         bpy.ops.object.transform_apply(location=False, rotation=False, scale=True )
 
@@ -96,6 +98,7 @@ class UE4_OT_ExportArmature(bpy.types.Operator):
         if armatureObj.animation_data is None:
             armatureObj.animation_data_create()
 
+        # disable tweak mode
         if (bpy.context.scene.is_nla_tweakmode == True):
             armatureObj.animation_data.use_tweak_mode = False
 
@@ -123,12 +126,11 @@ class UE4_OT_ExportArmature(bpy.types.Operator):
             scene.frame_start = action.frame_range.x
             scene.frame_end = action.frame_range.y
 
-            # export only the armature and its animation
+            # export only the armature and the selected animation
             bpy.ops.export_scene.fbx(
                 filepath=action_path,
                 check_existing=False,
                 use_selection=True,
-                #global_scale=GetObjExportScale(obj),
                 object_types={'ARMATURE'},
                 use_custom_props=False,
                 add_leaf_bones=False,
@@ -137,8 +139,6 @@ class UE4_OT_ExportArmature(bpy.types.Operator):
                 bake_anim_use_nla_strips=False,
                 bake_anim_use_all_actions=False,
                 bake_anim_force_startend_keying=True,
-                #bake_anim_step=GetAnimSample(obj),
-                #bake_anim_simplify_factor=obj.SimplifyAnimForExport,
                 use_metadata=False,
                 primary_bone_axis = 'X',
                 secondary_bone_axis = '-Y',	    
@@ -158,7 +158,6 @@ class UE4_OT_ExportArmature(bpy.types.Operator):
             filepath=fullpath,
             check_existing=False,
             use_selection=True,
-            #global_scale=GetObjExportScale(active),
             object_types={'ARMATURE', 'MESH'},
             use_custom_props=False,
             mesh_smooth_type="FACE",
