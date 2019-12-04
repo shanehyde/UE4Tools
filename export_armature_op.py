@@ -195,5 +195,7 @@ class UE4_OT_ExportArmature(bpy.types.Operator):
         # set the active back to the original armature and select it
         bpy.context.view_layer.objects.active = activeObj
         activeObj.select_set(True)
+
+        self.report({'INFO'}, "Exported %s and actions successfully" % filename )
         
         return {'FINISHED'}

@@ -1,6 +1,7 @@
 import bpy
 import os
 import mathutils
+import math
 
 from . util import *
 
@@ -60,6 +61,8 @@ class UE4_OT_ExportMesh(bpy.types.Operator):
         mat_trans = mathutils.Matrix.Translation((0,0,0))
         mat_rot = newMatrix.to_quaternion().to_matrix()
         newMatrix = mat_trans @ mat_rot.to_4x4()
+        eul = mathutils.Euler((0,0, math.radians(90.0)), 'ZXY')
+        newMatrix = newMatrix @ eul.to_matrix().to_4x4()
         
         meshObj.matrix_world = newMatrix
         meshObj.scale = saveScale
@@ -93,5 +96,7 @@ class UE4_OT_ExportMesh(bpy.types.Operator):
         activeObj.select_set(True)
         #bpy.context.window.scene = savedScene
         #bpy.data.scenes.remove(tempScene)
+
+        self.report({'INFO'}, "Exported %s successfully" % filename )
         
         return {'FINISHED'}
