@@ -88,6 +88,7 @@ class UE4_OT_ExportArmature(bpy.types.Operator):
         
         armatureObj.matrix_world = newMatrix
         armatureObj.scale = saveScale
+        bpy.ops.object.transform_apply(location=False, rotation=True, scale=False )
 
         # lets find all actions that use a bone from this armature
         actionList = []
@@ -110,6 +111,12 @@ class UE4_OT_ExportArmature(bpy.types.Operator):
         # disable tweak mode
         if (bpy.context.scene.is_nla_tweakmode == True):
             armatureObj.animation_data.use_tweak_mode = False
+
+        for x in armatureObj.pose.bones:
+            x.rotation_quaternion = mathutils.Quaternion((0,0,0),0)
+            x.rotation_euler = mathutils.Vector((0,0,0))
+            x.scale = mathutils.Vector((1,1,1))
+            x.location = mathutils.Vector((0,0,0))            
 
         # ok do all the actions, if they have one frame, we will call it a Pose
         for action in actionList:
