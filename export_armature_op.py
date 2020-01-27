@@ -50,159 +50,164 @@ class UE4_OT_ExportArmature(bpy.types.Operator):
         ApplyNeededModifierToSelect()
 
         #remove all materials from the the mesh except those starting with Mat_
-        RemoveMaterialsFromSelectedObjects()
+        if RemoveMaterialsFromSelectedObjects():
 
-        # This trickery causes the armature to have a scale of 0.01 and the mesh to have a scale of 1.0
-        # this means that when UE4 imports the mesh and mistakenly scales the skeleton by 100 then everything is 
-        # right
-        bpy.ops.object.transform_apply(location=False, rotation=False, scale=True )
-        bpy.ops.transform.resize(value=(100,100,100))
-        bpy.ops.object.transform_apply(location=False, rotation=False, scale=True )
-        bpy.ops.transform.resize(value=(0.01, 0.01, 0.01))
+            # This trickery causes the armature to have a scale of 0.01 and the mesh to have a scale of 1.0
+            # this means that when UE4 imports the mesh and mistakenly scales the skeleton by 100 then everything is 
+            # right
+            bpy.ops.object.transform_apply(location=False, rotation=False, scale=True )
+            bpy.ops.transform.resize(value=(100,100,100))
+            bpy.ops.object.transform_apply(location=False, rotation=False, scale=True )
+            bpy.ops.transform.resize(value=(0.01, 0.01, 0.01))
 
-        #after that the child mesh has a scale of 100, lets reset it to 1
-        bpy.ops.object.select_hierarchy(direction='CHILD', extend=False) 
-        bpy.ops.object.transform_apply(location=False, rotation=False, scale=True )
+            #after that the child mesh has a scale of 100, lets reset it to 1
+            bpy.ops.object.select_hierarchy(direction='CHILD', extend=False) 
+            bpy.ops.object.transform_apply(location=False, rotation=False, scale=True )
 
-        #select the armature again and make it active
-        bpy.ops.object.select_hierarchy(direction='PARENT', extend=False) 
-        bpy.context.view_layer.objects.active = armatureObj
+            #select the armature again and make it active
+            bpy.ops.object.select_hierarchy(direction='PARENT', extend=False) 
+            bpy.context.view_layer.objects.active = armatureObj
 
-        #reselct all the children
-        bpy.ops.object.select_hierarchy(direction='CHILD', extend=True) 
+            #reselct all the children
+            bpy.ops.object.select_hierarchy(direction='CHILD', extend=True) 
 
-        # move the object to 0,0,0 for export.  No need to worry about rotation just now
-        newMatrix = armatureObj.matrix_world @ mathutils.Matrix.Translation((0,0,0))
-        saveScale = armatureObj.scale * 1
-        mat_trans = mathutils.Matrix.Translation((0,0,0))
-        mat_rot = newMatrix.to_quaternion().to_matrix()
-        newMatrix = mat_trans @ mat_rot.to_4x4()
+            # move the object to 0,0,0 for export.  No need to worry about rotation just now
+            newMatrix = armatureObj.matrix_world @ mathutils.Matrix.Translation((0,0,0))
+            saveScale = armatureObj.scale * 1
+            mat_trans = mathutils.Matrix.Translation((0,0,0))
+            mat_rot = newMatrix.to_quaternion().to_matrix()
+            newMatrix = mat_trans @ mat_rot.to_4x4()
 
-        #mat_trans = mathutils.Matrix.Translation(newMatrix.to_translation())
-        #mat_rot = mathutils.Matrix.Rotation(0, 4, 'X')
-        #newMatrix = mat_trans @ mat_rot
+            #mat_trans = mathutils.Matrix.Translation(newMatrix.to_translation())
+            #mat_rot = mathutils.Matrix.Rotation(0, 4, 'X')
+            #newMatrix = mat_trans @ mat_rot
 
-        # rotate around Z to make the front point to X which is what UE4 wants
-        eul = mathutils.Euler((0,0, math.radians(90.0)), 'ZXY')
-        newMatrix = newMatrix @ eul.to_matrix().to_4x4()
-        
-        armatureObj.matrix_world = newMatrix
-        armatureObj.scale = saveScale
-        bpy.ops.object.transform_apply(location=False, rotation=True, scale=False )
+            # rotate around Z to make the front point to X which is what UE4 wants
+            eul = mathutils.Euler((0,0, math.radians(90.0)), 'ZXY')
+            newMatrix = newMatrix @ eul.to_matrix().to_4x4()
+            
+            armatureObj.matrix_world = newMatrix
+            armatureObj.scale = saveScale
+            bpy.ops.object.transform_apply(location=False, rotation=True, scale=False )
 
-        # lets find all actions that use a bone from this armature
-        actionList = []
-        armatureBones = {bone.name for bone in armatureObj.data.bones}
-        for action in bpy.data.actions:
-            actionBones = {group.name for group in action.groups}
-            if not armatureBones.isdisjoint(actionBones):
-                actionList.append(action)
+            # lets find all actions that use a bone from this armature
+            actionList = []
+            armatureBones = {bone.name for bone in armatureObj.data.bones}
+            for action in bpy.data.actions:
+                actionBones = {group.name for group in action.groups}
+                if not armatureBones.isdisjoint(actionBones):
+                    actionList.append(action)
 
-        # backup some values to put back later
-        savedAction = armatureObj.animation_data.action #Save current action
-        savedAction_extrapolation = armatureObj.animation_data.action_extrapolation
-        savedAction_blend_type = armatureObj.animation_data.action_blend_type
-        savedAction_influence = armatureObj.animation_data.action_influence
+            # backup some values to put back later
+            savedAction = armatureObj.animation_data.action #Save current action
+            savedAction_extrapolation = armatureObj.animation_data.action_extrapolation
+            savedAction_blend_type = armatureObj.animation_data.action_blend_type
+            savedAction_influence = armatureObj.animation_data.action_influence
 
-        # make the data block we might need
-        if armatureObj.animation_data is None:
-            armatureObj.animation_data_create()
+            # make the data block we might need
+            if armatureObj.animation_data is None:
+                armatureObj.animation_data_create()
 
-        # disable tweak mode
-        if (bpy.context.scene.is_nla_tweakmode == True):
-            armatureObj.animation_data.use_tweak_mode = False
+            # disable tweak mode
+            if (bpy.context.scene.is_nla_tweakmode == True):
+                armatureObj.animation_data.use_tweak_mode = False
 
-        for x in armatureObj.pose.bones:
-            x.rotation_quaternion = mathutils.Quaternion((0,0,0),0)
-            x.rotation_euler = mathutils.Vector((0,0,0))
-            x.scale = mathutils.Vector((1,1,1))
-            x.location = mathutils.Vector((0,0,0))            
+            for x in armatureObj.pose.bones:
+                x.rotation_quaternion = mathutils.Quaternion((0,0,0),0)
+                x.rotation_euler = mathutils.Vector((0,0,0))
+                x.scale = mathutils.Vector((1,1,1))
+                x.location = mathutils.Vector((0,0,0))            
 
-        # ok do all the actions, if they have one frame, we will call it a Pose
-        for action in actionList:
-            if action.frame_range.y - action.frame_range.x == 1:
-                actionType = "Pose"
-                action_prefix = addon_prefs.pose_prefix_export_name
-            else:
-                actionType = "Action"
-                action_prefix = addon_prefs.anim_prefix_export_name
+            # ok do all the actions, if they have one frame, we will call it a Pose
+            for action in actionList:
+                if action.frame_range.y - action.frame_range.x == 1:
+                    actionType = "Pose"
+                    action_prefix = addon_prefs.pose_prefix_export_name
+                else:
+                    actionType = "Action"
+                    action_prefix = addon_prefs.anim_prefix_export_name
 
-            # construct the filename from the settings.
-            filename_prefix = action_prefix
-            action_filename = filename_prefix + activeObj.name+"_"+action.name + ".fbx"
-            action_path = os.path.join( absdirpath ,  action_filename )
+                # construct the filename from the settings.
+                filename_prefix = action_prefix
+                action_filename = filename_prefix + activeObj.name+"_"+action.name + ".fbx"
+                action_path = os.path.join( absdirpath ,  action_filename )
 
-            # select the action into the action editor
-            armatureObj.animation_data.action = action #Apply desired action and reset NLA
-            armatureObj.animation_data.action_extrapolation = 'HOLD'
-            armatureObj.animation_data.action_blend_type = 'REPLACE'
-            armatureObj.animation_data.action_influence = 1
+                # select the action into the action editor
+                armatureObj.animation_data.action = action #Apply desired action and reset NLA
+                armatureObj.animation_data.action_extrapolation = 'HOLD'
+                armatureObj.animation_data.action_blend_type = 'REPLACE'
+                armatureObj.animation_data.action_influence = 1
 
-            # set the frame range
-            scene.frame_start = action.frame_range.x
-            scene.frame_end = action.frame_range.y
+                # set the frame range
+                scene.frame_start = action.frame_range.x
+                scene.frame_end = action.frame_range.y
 
-            # export only the armature and the selected animation
+                # export only the armature and the selected animation
+                bpy.ops.export_scene.fbx(
+                    filepath=action_path,
+                    check_existing=False,
+                    use_selection=True,
+                    object_types={'ARMATURE'},
+                    use_custom_props=False,
+                    add_leaf_bones=False,
+                    use_armature_deform_only=True,
+                    bake_anim=True,
+                    bake_anim_use_nla_strips=False,
+                    bake_anim_use_all_actions=False,
+                    bake_anim_force_startend_keying=True,
+                    use_metadata=False,
+                    primary_bone_axis = 'X',
+                    secondary_bone_axis = '-Y',	    
+                    axis_forward = 'X',
+                    axis_up = 'Z',
+                    bake_space_transform = False
+                )
+
+            # restore the saved stuff
+            armatureObj.animation_data.action = savedAction #Resets previous action and NLA
+            armatureObj.animation_data.action_extrapolation = savedAction_extrapolation
+            armatureObj.animation_data.action_blend_type = savedAction_blend_type
+            armatureObj.animation_data.action_influence = savedAction_influence
+
+            for x in armatureObj.pose.bones:
+                x.rotation_quaternion = mathutils.Quaternion((0,0,0),0)
+                x.rotation_euler = mathutils.Vector((0,0,0))
+                x.scale = mathutils.Vector((1,1,1))
+                x.location = mathutils.Vector((0,0,0))
+
+            #bpy.ops.object.transform_apply(location=False, rotation=True, scale=False )
+                    
+            # now export the armature and mesh
             bpy.ops.export_scene.fbx(
-                filepath=action_path,
+                filepath=fullpath,
                 check_existing=False,
                 use_selection=True,
-                object_types={'ARMATURE'},
+                object_types={'ARMATURE', 'MESH'},
                 use_custom_props=False,
+                mesh_smooth_type="FACE",
                 add_leaf_bones=False,
                 use_armature_deform_only=True,
-                bake_anim=True,
-                bake_anim_use_nla_strips=False,
-                bake_anim_use_all_actions=False,
-                bake_anim_force_startend_keying=True,
+                bake_anim=False,
                 use_metadata=False,
                 primary_bone_axis = 'X',
-                secondary_bone_axis = '-Y',	    
+                secondary_bone_axis = '-Y',	
                 axis_forward = 'X',
                 axis_up = 'Z',
                 bake_space_transform = False
             )
+            bpy.ops.object.delete()
+            
+            # set the active back to the original armature and select it
+            bpy.context.view_layer.objects.active = activeObj
+            activeObj.select_set(True)
 
-        # restore the saved stuff
-        armatureObj.animation_data.action = savedAction #Resets previous action and NLA
-        armatureObj.animation_data.action_extrapolation = savedAction_extrapolation
-        armatureObj.animation_data.action_blend_type = savedAction_blend_type
-        armatureObj.animation_data.action_influence = savedAction_influence
-
-        for x in armatureObj.pose.bones:
-            x.rotation_quaternion = mathutils.Quaternion((0,0,0),0)
-            x.rotation_euler = mathutils.Vector((0,0,0))
-            x.scale = mathutils.Vector((1,1,1))
-            x.location = mathutils.Vector((0,0,0))
-
-        #bpy.ops.object.transform_apply(location=False, rotation=True, scale=False )
-                
-        # now export the armature and mesh
-        bpy.ops.export_scene.fbx(
-            filepath=fullpath,
-            check_existing=False,
-            use_selection=True,
-            object_types={'ARMATURE', 'MESH'},
-            use_custom_props=False,
-            mesh_smooth_type="FACE",
-            add_leaf_bones=False,
-            use_armature_deform_only=True,
-            bake_anim=False,
-            use_metadata=False,
-            primary_bone_axis = 'X',
-            secondary_bone_axis = '-Y',	
-            axis_forward = 'X',
-            axis_up = 'Z',
-            bake_space_transform = False
-        )
-
-        # delete the duplicated objects
-        bpy.ops.object.delete()
-        
-        # set the active back to the original armature and select it
-        bpy.context.view_layer.objects.active = activeObj
-        activeObj.select_set(True)
-
-        self.report({'INFO'}, "Exported %s and actions successfully" % filename )
+            self.report({'INFO'}, "Exported %s and actions successfully" % filename )        
+        else:
+            bpy.ops.object.delete()
+            
+            # set the active back to the original armature and select it
+            bpy.context.view_layer.objects.active = activeObj
+            activeObj.select_set(True)
+            self.report({'INFO'}, "No default material set" )
         
         return {'FINISHED'}

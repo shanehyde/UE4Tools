@@ -23,6 +23,8 @@ def RemoveMaterialsFromSelectedObjects():
     # save actgive object
     activeObj = bpy.context.view_layer.objects.active 
 
+    hasAnyMaterial = False
+
     for matobj in bpy.context.selected_objects:
         if matobj.type == 'MESH' and True:
             bpy.context.view_layer.objects.active = matobj
@@ -31,7 +33,12 @@ def RemoveMaterialsFromSelectedObjects():
                 if matobj.material_slots[i].name[0:4] != 'Mat_':
                     matobj.active_material_index = i
                     bpy.ops.object.material_slot_remove()
+                else:
+                    hasAnyMaterial = True
+    
     bpy.context.view_layer.objects.active = activeObj
+
+    return hasAnyMaterial
 
 def ValidFilenameForUnreal(filename):
     # valid file name for unreal assets

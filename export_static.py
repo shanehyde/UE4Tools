@@ -54,49 +54,49 @@ class UE4_OT_ExportMesh(bpy.types.Operator):
         #    print(obj.name)
 
         ApplyNeededModifierToSelect()
-        RemoveMaterialsFromSelectedObjects()
+        if RemoveMaterialsFromSelectedObjects():
 
-        newMatrix = meshObj.matrix_world @ mathutils.Matrix.Translation((0,0,0))
-        saveScale = meshObj.scale * 1
-        mat_trans = mathutils.Matrix.Translation((0,0,0))
-        mat_rot = newMatrix.to_quaternion().to_matrix()
-        newMatrix = mat_trans @ mat_rot.to_4x4()
-        eul = mathutils.Euler((0,0, math.radians(90.0)), 'ZXY')
-        newMatrix = newMatrix @ eul.to_matrix().to_4x4()
+            newMatrix = meshObj.matrix_world @ mathutils.Matrix.Translation((0,0,0))
+            saveScale = meshObj.scale * 1
+            mat_trans = mathutils.Matrix.Translation((0,0,0))
+            mat_rot = newMatrix.to_quaternion().to_matrix()
+            newMatrix = mat_trans @ mat_rot.to_4x4()
+            eul = mathutils.Euler((0,0, math.radians(90.0)), 'ZXY')
+            newMatrix = newMatrix @ eul.to_matrix().to_4x4()
+            
+            meshObj.matrix_world = newMatrix
+            meshObj.scale = saveScale
+
+            #print(fullpath)
+                    
+            bpy.ops.export_scene.fbx(
+                filepath=fullpath,
+                check_existing=False,
+                use_selection=True,
+                #global_scale=GetObjExportScale(active),
+                object_types={'MESH'},
+                use_custom_props=False,
+                mesh_smooth_type="FACE",
+                add_leaf_bones=False,
+                use_armature_deform_only=True,
+                bake_anim=False,
+                use_metadata=False,
+                primary_bone_axis = 'X',
+                secondary_bone_axis = '-Y',	
+                axis_forward = 'X',
+                axis_up = 'Z',
+                bake_space_transform = False
+            )
+            bpy.ops.object.delete()
         
-        meshObj.matrix_world = newMatrix
-        meshObj.scale = saveScale
-
-        #print(fullpath)
-                
-        bpy.ops.export_scene.fbx(
-            filepath=fullpath,
-            check_existing=False,
-            use_selection=True,
-            #global_scale=GetObjExportScale(active),
-            object_types={'MESH'},
-            use_custom_props=False,
-            mesh_smooth_type="FACE",
-            add_leaf_bones=False,
-            use_armature_deform_only=True,
-            bake_anim=False,
-            use_metadata=False,
-            primary_bone_axis = 'X',
-            secondary_bone_axis = '-Y',	
-            axis_forward = 'X',
-            axis_up = 'Z',
-            bake_space_transform = False
-        )
-
-
-        bpy.ops.object.delete()
+            bpy.context.view_layer.objects.active = activeObj
+            activeObj.select_set(True)
+            self.report({'INFO'}, "Exported %s successfully" % filename )
+        else:
+            bpy.ops.object.delete()
         
-        #print("New active name = %s" % activeObj.name)
-        bpy.context.view_layer.objects.active = activeObj
-        activeObj.select_set(True)
-        #bpy.context.window.scene = savedScene
-        #bpy.data.scenes.remove(tempScene)
-
-        self.report({'INFO'}, "Exported %s successfully" % filename )
-        
+            bpy.context.view_layer.objects.active = activeObj
+            activeObj.select_set(True)
+            self.report({'INFO'}, "No Default Material" )
+    
         return {'FINISHED'}
